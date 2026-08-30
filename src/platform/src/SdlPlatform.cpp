@@ -79,6 +79,22 @@ bool SdlPlatform::pollEvent(InputEvent& out) {
     } else if (e.type == SDL_KEYUP) {
         out.type = InputEvent::Type::KeyUp;
         out.key = mapScancode(e.key.keysym.scancode);
+    } else if (e.type == SDL_MOUSEMOTION) {
+        out.type = InputEvent::Type::MouseMove;
+        out.mouseX = e.motion.x;
+        out.mouseY = e.motion.y;
+    } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+        out.type = (e.type == SDL_MOUSEBUTTONDOWN)
+                       ? InputEvent::Type::MouseDown
+                       : InputEvent::Type::MouseUp;
+        switch (e.button.button) {
+            case SDL_BUTTON_LEFT:   out.button = MouseButton::Left; break;
+            case SDL_BUTTON_RIGHT:  out.button = MouseButton::Right; break;
+            case SDL_BUTTON_MIDDLE: out.button = MouseButton::Middle; break;
+            default:                out.button = MouseButton::None; break;
+        }
+        out.mouseX = e.button.x;
+        out.mouseY = e.button.y;
     }
     return true;
 }

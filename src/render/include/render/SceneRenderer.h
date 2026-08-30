@@ -4,7 +4,7 @@
 #include "core/Mat.h"
 #include "render/Camera.h"
 #include "render/Rasterizer.h"
-#include "world/TileMap.h"
+#include "world/terrain/TileMap.h"
 #include <functional>
 #include <vector>
 
@@ -37,6 +37,14 @@ public:
 
     // 计算一个世界点在当前视图下的深度键（= 视空间 depth，越大越远）。
     static float viewDepthKey(const Mat4& view, const Vec3f& worldPos);
+
+    // 按"相机右方向 + 相机上方向"构造屏幕对齐公告板四角（输出顺序：左上、右上、右下、
+    // 左下，与 drawWorldQuad 的 UV 约定一致）。抽成静态纯函数以便无头单元测试：
+    // rightDir 取 Camera::rightWorld()、upDir 取 Camera::upWorld()。这样公告板在相机
+    // 空间严格沿 X/Y 轴，投影后水平边严格水平、竖直边严格竖直——角色即使在屏幕边缘
+    // （地图边缘夹取、玩家偏离视线轴）也不会歪斜或被透视压扁，屏幕高宽比恒等于 w/h。
+    static void billboardCorners(const Vec3f& rightDir, const Vec3f& upDir,
+                                 const Vec3f& base, float w, float h, Vec3f out[4]);
 
 private:
     struct DrawItem {

@@ -10,25 +10,20 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ---- 库：除 SDL 平台外的全部框架代码（不依赖 SDL2） ----
-file(GLOB_RECURSE DXG_CORE_SOURCES CONFIGURE_DEPENDS
-    src/core/src/*.cpp
-    src/input/src/*.cpp
-    src/anim/src/*.cpp
-    src/world/src/*.cpp
-    src/render/src/*.cpp
-    src/ui/src/*.cpp
-    src/res/src/*.cpp
-    src/game/src/*.cpp
-)
+# 递归收集各模块 src 下的源码（world 等模块内部含子包目录，如 src/world/src/terrain/）。
+file(GLOB_RECURSE DXG_CORE_SOURCES CONFIGURE_DEPENDS "src/*/src/*.cpp")
+# platform 含 SDL 代码，不进 dxg_core。
+list(FILTER DXG_CORE_SOURCES EXCLUDE REGEX "[\\/]platform[\\/]")
 
 add_library(dxg_core STATIC ${DXG_CORE_SOURCES})
 
-# 每个模块的 include 根（头文件以 <模块>/<头名>.h 引用）。
-file(GLOB DXG_MODULE_DIRS CONFIGURE_DEPENDS LIST_DIRECTORIES true "src/*")
+# 每个模块的 include 根（头文件以 <模块>/<子包>/<头名>.h 引用）。
+# 递归发现所有名为 include 的目录，兼容模块内部的子包结构。
+file(GLOB_RECURSE DXG_INCLUDE_CANDIDATES CONFIGURE_DEPENDS LIST_DIRECTORIES true "src/*/include")
 set(DXG_INCLUDE_DIRS "")
-foreach(dir ${DXG_MODULE_DIRS})
-    if(IS_DIRECTORY "${dir}/include")
-        list(APPEND DXG_INCLUDE_DIRS "${dir}/include")
+foreach(dir ${DXG_INCLUDE_CANDIDATES})
+    if(IS_DIRECTORY "${dir}")
+        list(APPEND DXG_INCLUDE_DIRS "${dir}")
     endif()
 endforeach()
 target_include_directories(dxg_core PUBLIC ${DXG_INCLUDE_DIRS})

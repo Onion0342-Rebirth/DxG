@@ -27,6 +27,11 @@ public:
     const Mat4& view() const { return view_; }
     const Mat4& proj() const { return proj_; }
     const Vec3f& eye() const { return eye_; }
+
+    // 相机右/上方向在世界系中的单位向量（视图矩阵为列主序，右基向量在列 0、上基向量在列 1）。
+    // 公告板水平边对齐 rightWorld() 可保证其投影严格沿屏幕水平，角色在屏幕边缘也不歪斜。
+    Vec3f rightWorld() const;
+    Vec3f upWorld() const;
     float fov() const { return fov_; }
     float nearPlane() const { return near_; }
     float farPlane() const { return far_; }

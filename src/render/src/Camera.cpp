@@ -10,6 +10,17 @@ void Camera::setViewport(int width, int height) {
     rebuildProjection();
 }
 
+Vec3f Camera::rightWorld() const {
+    // 视图矩阵把世界坐标旋到相机空间，其数学行向量即世界系基向量 s/u/-f；
+    // 本矩阵按列主序 m[col][row] 存储，故右基向量 s（数学行 0）跨列 0..2 读取。
+    return Vec3f{view_.m[0][0], view_.m[1][0], view_.m[2][0]};
+}
+
+Vec3f Camera::upWorld() const {
+    // 上基向量 u（数学行 1）：列主序下跨列读取 m[0..2][1]。
+    return Vec3f{view_.m[0][1], view_.m[1][1], view_.m[2][1]};
+}
+
 void Camera::configure(const Vec3f& eye, const Vec3f& target, float fovDeg) {
     eye_ = eye;
     fov_ = fovDeg;

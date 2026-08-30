@@ -1,7 +1,7 @@
 #include "ui/HUD.h"
 #include "ui/UIRenderer.h"
 #include "core/PixelBuffer.h"
-#include "world/Character.h"
+#include "world/character/Character.h"
 #include <cstdio>
 
 namespace d25 {

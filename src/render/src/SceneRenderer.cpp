@@ -4,8 +4,9 @@
 #include "render/Sprite.h"
 #include "render/SpriteSheet.h"
 #include "world/World.h"
-#include "world/Entity.h"
-#include "world/Character.h"
+#include "world/entity/Entity.h"
+#include "world/character/Character.h"
+#include "world/player/Player.h"
 #include <algorithm>
 #include <cmath>
 
@@ -81,8 +82,12 @@ void SceneRenderer::drawTiles() {
                 {x0, y, z0}, {x1, y, z0}, {x1, y, z1}, {x0, y, z1},
             };
             const float uv[8] = {0.f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f};
+            // 棋盘格明暗交替：相邻瓦片一亮一暗，纯色地面也能看出玩家移动。
+            // 暗格统一压到 0.82 倍亮度（无纹理时压兜底色，有纹理时压 tint 白值）。
+            const bool dark = ((tx + tz) & 1) != 0;
             const Sprite* tex = assets_.terrain(tile.terrain);
-            const Color tint = tex ? Color{255, 255, 255, 255} : terrainFallback(tile.terrain);
+            Color tint = tex ? Color{255, 255, 255, 255} : terrainFallback(tile.terrain);
+            if (dark) tint = shade(tint, 0.82f);
             drawWorldQuad(corners, uv, tex, tint);
         }
     }
@@ -127,9 +132,10 @@ void SceneRenderer::drawActors() {
         }
     }
 
-    // 角色。
+    // 角色（玩家 + 非玩家角色）。玩家单独持有于 World，NPC 在 characters() 中，
+    // 两者都按 Character 接口取位移动画帧，加入同一 depth 排序列表。
     const SpriteSheet* sheet = assets_.playerSheet();
-    for (const Character& c : world_.characters()) {
+    auto addCharacter = [&](const Character& c) {
         const Vec2f& p = c.pos();
         const float h = map.heightAt(p.x, p.y);
         const Vec3f base{p.x, h, p.y};
@@ -145,10 +151,14 @@ void SceneRenderer::drawActors() {
             w = 0.8f;
             hh = w * (fr.height() / float(std::max(1, fr.width())));
         }
+        // 公告板为屏幕对齐（水平/竖直边沿相机基向量），正方形精灵帧投影后仍为正方形，
+        // 无需按俯角做高度补偿。
         items.push_back({key, [this, base, framePtr, w, hh] {
             drawBillboard(base, w, hh, framePtr, {255, 255, 255, 255});
         }});
-    }
+    };
+    if (const Player* p = world_.player()) addCharacter(*p);
+    for (const Character& c : world_.characters()) addCharacter(c);
 
     // 远 -> 近 排序（descending depth）。
     std::stable_sort(items.begin(), items.end(),
@@ -178,22 +188,31 @@ void SceneRenderer::drawWorldQuad(const Vec3f corners[4], const float uv[8],
     ras_.triangle(sv[0], sv[2], sv[3], tex, tint);
 }
 
+void SceneRenderer::billboardCorners(const Vec3f& rightDir, const Vec3f& upDir,
+                                     const Vec3f& base, float w, float h, Vec3f out[4]) {
+    // 屏幕对齐公告板：水平边对齐相机右向量、竖直边对齐相机上向量（均为世界系单位
+    // 基向量）。二者在相机空间恰为 ±X / ±Y，因此无论角色在屏幕什么位置，投影后
+    // 水平边严格水平、竖直边严格竖直，不会歪斜；且同深度下屏幕高宽比恒等于 w/h，
+    // 正方形精灵帧不会因俯视透视被压扁。
+    const Vec3f right = rightDir.normalized();
+    const Vec3f up = upDir.normalized();
+    const Vec3f hw = right * (w * 0.5f);
+    const Vec3f vh = up * h;
+    const Vec3f bl = base - hw;
+    const Vec3f br = base + hw;
+    // 输出顺序：左上、右上、右下、左下（与 drawWorldQuad 的 UV 约定一致）。
+    out[0] = bl + vh;
+    out[1] = br + vh;
+    out[2] = br;
+    out[3] = bl;
+}
+
 void SceneRenderer::drawBillboard(const Vec3f& base, float w, float h,
                                   const Sprite* tex, Color tint) {
     if (!color_ || !depth_) return;
 
-    // 从相机位置反推右方向（公告板水平面向相机，垂直保持世界上方向）。
-    const Vec3f f = (cam_.eye() - base).normalized();
-    Vec3f right = cross({0.f, 1.f, 0.f}, f).normalized();
-    if (right.lengthSq() < 1e-6f) right = {1.f, 0.f, 0.f};
-
-    const float hw = w * 0.5f;
-    const Vec3f bl = base - right * hw;
-    const Vec3f br = base + right * hw;
-    const Vec3f tl = bl + Vec3f{0.f, h, 0.f};
-    const Vec3f tr = br + Vec3f{0.f, h, 0.f};
-
-    const Vec3f corners[4] = {tl, tr, br, bl};
+    Vec3f corners[4];
+    billboardCorners(cam_.rightWorld(), cam_.upWorld(), base, w, h, corners);
     const float uv[8] = {0.f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f};
     drawWorldQuad(corners, uv, tex, tint);
 }

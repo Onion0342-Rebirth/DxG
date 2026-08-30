@@ -15,14 +15,14 @@ src/
     src/*.cpp              # 模块实现
 ```
 
-包含方式：`#include "core/Vec.h"`、`#include "world/Character.h"`（每个模块的 `include/` 目录都在包含路径上）。
+包含方式：`#include "core/Vec.h"`、`#include "world/character/Character.h"`（每个模块的 `include/` 目录都在包含路径上；world 等模块内部按子包组织，如 `world/terrain/TileMap.h`、`world/player/Player.h`）。
 
 | 模块 | 职责 |
 | --- | --- |
 | `core` | 数学 Vec/Mat/Color/Random、PixelBuffer/DepthBuffer、PPM 输出、固定步长 Timer、Game 主循环骨架 |
 | `input` | 抽象 Key、InputEvent、玩法 Action、InputManager（键位映射 + 三态查询） |
 | `anim` | AnimationClip / AnimationPlayer（纯头文件，与渲染解耦） |
-| `world` | TileMap 地形/可走性/高度、Entity 静态物件、Character 2D 移动与圆-瓦片碰撞、World 容器 |
+| `world` | 玩法数据层（内含子包）：terrain 地形 TileMap、entity 静态物件、character 角色通用能力（Character 基类/Direction）、player 玩家角色（Player : Character）；根目录 World 为世界容器 |
 | `render` | Camera、Sprite/SpriteSheet、Rasterizer 软件三角形（透视校正 + z-buffer + 雾）、SceneRenderer |
 | `ui` | 内置 5×7 位图 Font、UIRenderer、HUD |
 | `res` | ResourceManager：全游戏唯一资源容器，实现 render 侧 `ISceneAssets` 接口 |

@@ -1,5 +1,5 @@
-#include "world/Character.h"
-#include "world/TileMap.h"
+#include "world/character/Character.h"
+#include "world/terrain/TileMap.h"
 #include <algorithm>
 #include <cmath>
 
@@ -18,11 +18,22 @@ void Character::setWishDir(const Vec2f& d) {
     }
 }
 
-void Character::setAnimClips(const AnimationClip* const idle[4], const AnimationClip* const walk[4]) {
-    for (int i = 0; i < 4; ++i) {
+void Character::setAnimClips(const AnimationClip* const idle[8], const AnimationClip* const walk[8]) {
+    for (int i = 0; i < kDirCount; ++i) {
         idle_[i] = idle[i];
         walk_[i] = walk[i];
     }
+}
+
+// 把归一化后的意愿方向（x=X，y=Z）量化到最近的 45° 八方向。
+// 世界角度：atan2(z, x) 以 +X（东）为 0、顺时针（+Z=南）为正；
+// 乘 4/π 后四舍五入得到 0..7 的八分区（0=东，顺时针），再映射到 Direction 枚举
+// （枚举从北起顺时针：dirIdx = (octant + 2) % 8）。
+Direction Character::facingFromWish(const Vec2f& w) {
+    float oct = std::round(std::atan2(w.y, w.x) * 4.f / 3.14159265358979323846f);
+    int idx = int(oct) % 8;
+    if (idx < 0) idx += 8;
+    return Direction((idx + 2) % 8);
 }
 
 // 轴分离移动：先 X 再 Z，撞墙时沿另一轴滑动。
@@ -43,12 +54,9 @@ void Character::update(float dt, const TileMap& map) {
     moving_ = wish_.x != 0.f || wish_.y != 0.f;
 
     if (moving_) {
-        // 按主导轴更新朝向（避免抖动）。
-        if (std::abs(wish_.x) >= std::abs(wish_.y)) {
-            facing_ = wish_.x > 0.f ? Direction::East : Direction::West;
-        } else {
-            facing_ = wish_.y > 0.f ? Direction::South : Direction::North;
-        }
+        // 把移动方向量化到最近的 45° 八方向（纯轴方向与原四方向结果一致，
+        // 等分量斜向落到 NE/SE/SW/NW），避免斜走时动画在两个轴向间抖动。
+        facing_ = facingFromWish(wish_);
 
         // 轴分离：X
         const float nx = pos_.x + wish_.x * speed_ * dt;
@@ -69,13 +77,15 @@ void Character::update(float dt, const TileMap& map) {
 
 void Character::updateFacingAndAnim(float dt) {
     // tag 相同不重置动画（走路不抖）；tag 变化切剪辑并 play 重置。
-    const int tag = (moving_ ? 4 : 0) + int(facing_);
+    const int tag = (moving_ ? 8 : 0) + int(facing_);
     if (tag != animTag_) {
         animTag_ = tag;
         const AnimationClip* clip = (moving_ ? walk_ : idle_)[int(facing_)];
         if (clip) anim_.play(*clip);
     }
-    anim_.update(moving_ ? dt : 0.0f); // idle 暂不推进（可改为呼吸动画）
+    // idle 与 walk 都按真实时间推进；快慢由各自剪辑的 fps 决定
+    // （walk 较快、idle 较慢循环，呈现待机呼吸感，而不是静止僵住）。
+    anim_.update(dt);
 }
 
 } // namespace d25

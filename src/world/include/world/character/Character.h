@@ -1,6 +1,6 @@
 #pragma once
 #include "core/Vec.h"
-#include "world/Direction.h"
+#include "world/character/Direction.h"
 #include "anim/AnimationClip.h"
 #include "anim/AnimationPlayer.h"
 
@@ -8,8 +8,10 @@ namespace d25 {
 
 class TileMap;
 
-// 2D 可移动角色：XZ 平面移动、8 方向输入归一化、圆-瓦片碰撞（轴分离、撞墙滑动）。
-// 动画按 4 方向 x (idle/walk) 提供剪辑，由资源层注入；切剪辑用 tag=(moving?4:0)+(int)facing 检测。
+// 2D 可移动角色（玩家/NPC/怪物的共同能力基类）：XZ 平面移动、8 方向输入归一化、
+// 圆-瓦片碰撞（轴分离、撞墙滑动）。
+// 动画按 8 方向 x (idle/walk) 提供剪辑，由资源层注入；切剪辑用 tag=(moving?8:0)+(int)facing 检测。
+// 玩家特化见 world/player/Player.h；NPC、怪物可直接使用本类或派生。
 class Character {
 public:
     explicit Character(const Vec2f& start);
@@ -29,8 +31,9 @@ public:
     }
     void clearPlayBounds() { hasBounds_ = false; }
 
-    // 注入 4 方向 idle / walk 动画剪辑（下标 = (int)Direction）。nullptr 允许（角色保持第 0 帧）。
-    void setAnimClips(const AnimationClip* const idle[4], const AnimationClip* const walk[4]);
+    // 注入 8 方向 idle / walk 动画剪辑（下标 = (int)Direction）。nullptr 允许（角色保持第 0 帧）。
+    // idle 与 walk 均按时间循环推进，节奏由各自剪辑 fps 决定（idle 应比 walk 更慢）。
+    void setAnimClips(const AnimationClip* const idle[8], const AnimationClip* const walk[8]);
 
     // 玩家/AI 输入的意愿方向（任意长度，内部归一化）。
     void setWishDir(const Vec2f& d);
@@ -43,6 +46,7 @@ public:
 
 private:
     bool blockedAt(float x, float z, const TileMap& map) const;
+    static Direction facingFromWish(const Vec2f& w);
     void updateFacingAndAnim(float dt);
 
     Vec2f pos_;
@@ -57,8 +61,9 @@ private:
     bool moving_ = false;
     Direction facing_ = Direction::South;
 
-    const AnimationClip* idle_[4] = {nullptr, nullptr, nullptr, nullptr};
-    const AnimationClip* walk_[4] = {nullptr, nullptr, nullptr, nullptr};
+    static constexpr int kDirCount = int(Direction::Count); // 8
+    const AnimationClip* idle_[kDirCount] = {};
+    const AnimationClip* walk_[kDirCount] = {};
     int animTag_ = -1;
     AnimationPlayer anim_;
 };

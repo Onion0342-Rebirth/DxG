@@ -35,9 +35,46 @@ void InputManager::mapKey(Action action, Key key) {
 void InputManager::beginFrame() {
     keysPressed_.fill(false);
     keysReleased_.fill(false);
+    mousePressed_.fill(false);
+    mouseReleased_.fill(false);
 }
 
 void InputManager::handleEvent(const InputEvent& ev) {
+    switch (ev.type) {
+        case InputEvent::Type::MouseMove:
+            mouseX_ = ev.mouseX;
+            mouseY_ = ev.mouseY;
+            return;
+
+        case InputEvent::Type::MouseDown:
+        case InputEvent::Type::MouseUp: {
+            const size_t b = size_t(ev.button);
+            if (b >= size_t(MouseButton::Count)) return;
+            mouseX_ = ev.mouseX;
+            mouseY_ = ev.mouseY;
+            const bool isDown = ev.type == InputEvent::Type::MouseDown;
+            if (isDown) {
+                if (!mouseDown_[b]) {
+                    mouseDown_[b] = true;
+                    mousePressed_[b] = true;
+                }
+            } else {
+                if (mouseDown_[b]) {
+                    mouseDown_[b] = false;
+                    mouseReleased_[b] = true;
+                }
+            }
+            return;
+        }
+
+        case InputEvent::Type::KeyDown:
+        case InputEvent::Type::KeyUp:
+            break;  // 键盘事件走下面的既有逻辑
+
+        default:
+            return;  // None/Quit 等与按键状态无关
+    }
+
     const size_t k = size_t(ev.key);
     if (k >= size_t(Key::Count)) return;
 
@@ -76,6 +113,21 @@ bool InputManager::released(Action action) const {
     for (int i = 0; i < bindingCount_[size_t(action)]; ++i)
         if (keysReleased_[size_t(bindings_[size_t(action)][size_t(i)])]) return true;
     return false;
+}
+
+bool InputManager::mouseDown(MouseButton button) const {
+    const size_t b = size_t(button);
+    return b < size_t(MouseButton::Count) && mouseDown_[b];
+}
+
+bool InputManager::mousePressed(MouseButton button) const {
+    const size_t b = size_t(button);
+    return b < size_t(MouseButton::Count) && mousePressed_[b];
+}
+
+bool InputManager::mouseReleased(MouseButton button) const {
+    const size_t b = size_t(button);
+    return b < size_t(MouseButton::Count) && mouseReleased_[b];
 }
 
 } // namespace d25
